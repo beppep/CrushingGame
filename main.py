@@ -76,9 +76,9 @@ def initSound():
         Sound.wallSounds.append(pygame.mixer.Sound(os.path.join(SOUND_PATH, "wall"+str(i+1)+".wav")))
         Sound.wallSounds[-1].set_volume(v*1)
     
-    #pygame.mixer.music.load(os.path.join(filepath, "music.wav")) #must be wav 16bit and stuff?
-    #pygame.mixer.music.set_volume(v*0.1)
-    #pygame.mixer.music.play(-1)
+    pygame.mixer.music.load(os.path.join(SOUND_PATH, "crushing music.wav")) #must be wav 16bit and stuff?
+    pygame.mixer.music.set_volume(v*0.5)
+    pygame.mixer.music.play(-1)
 
 def playCrushSound():
     sound = random.choice(Sound.crushSounds)
@@ -522,21 +522,21 @@ class Menues():
         pygame_gui.elements.UITextBox(relative_rect=pygame.Rect((SCREENSIZE[0]-100, 50), (50, 50)),html_text=str(0),manager=managers["level_select"]),
         pygame_gui.elements.UITextBox(relative_rect=pygame.Rect((SCREENSIZE[0]-100, 50), (50, 50)),html_text=str(0),manager=managers["playing"]),
     ]
-    trial_time_textboxes = [
-        pygame_gui.elements.UITextBox(relative_rect=pygame.Rect((SCREENSIZE[0]//2-50, SCREENSIZE[1]//2-25), (100, 50)),html_text=str(0),manager=managers["trial_completed"]),
-    ]
-    #difficulty_slider = pygame_gui.elements.UIHorizontalSlider(relative_rect=pygame.Rect((1000, 200), (200, 50)),start_value=100, value_range=(0,100), manager=managers[""])
-    #difficulty_slider.enable_arrow_buttons=0
+    music_volume_textbox = pygame_gui.elements.UITextBox(relative_rect=pygame.Rect((20, 25), (200, 75)),html_text="Speed Crush Dash <br>yo",manager=managers["menu"])
+    music_volume_slider = pygame_gui.elements.UIHorizontalSlider(relative_rect=pygame.Rect((SCREENSIZE[0]-300, 200), (200, 50)),start_value=100, value_range=(0,100), manager=managers["menu"])
+    music_volume_slider.enable_arrow_buttons=0
+    
     level_select_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((300, 200), (300, 200)),text="Puzzle Level Select",manager=managers["menu"])
     play_randomized_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((700, 200), (300, 200)),text="Limitless Mode",manager=managers["menu"])
     play_pvp_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((300, 500), (300, 200)),text="PvP",manager=managers["menu"])
     play_time_trial_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((700, 500), (300, 200)),text="Time Trial",manager=managers["menu"])
-    
 
     # seed?
 
     seed_textbox = pygame_gui.elements.UITextEntryLine(pygame.Rect((700,700),(300,50)), manager = managers["menu"])
-
+    trial_time_textboxes = [
+        pygame_gui.elements.UITextBox(relative_rect=pygame.Rect((SCREENSIZE[0]//2-50, SCREENSIZE[1]//2-25), (100, 50)),html_text=str(0),manager=managers["trial_completed"]),
+    ]
 
 
 
