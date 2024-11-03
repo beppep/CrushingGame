@@ -6,7 +6,6 @@ import math
 import pygame_gui
 
 clock = pygame.time.Clock()
-#Adam "jag tycker ändå det kan funka med ett cirkelargument."
 SOUND_PATH = os.path.join("assets", "sounds")
 pygame.init()
 pygame.display.init()
@@ -14,18 +13,18 @@ pygame.display.init()
 infoObject = pygame.display.Info()
 SCREENSIZE = (infoObject.current_w, infoObject.current_h)
 FRAMERATE = 60
-#HEJ = "HJ"
 
 gameDisplay = pygame.display.set_mode(SCREENSIZE)
 #gameDisplay = pygame.display.set_mode((infoObject.current_w, infoObject.current_h), pygame.FULLSCREEN)
 pygame.display.set_caption("Fast Game yo")
-#pygame.display.set_icon(pygame.image.load(os.path.join(filepath, "textures", "puncher", "idle.png")))
+pygame.display.set_icon(pygame.image.load(os.path.join("assets", "textures", "player", "player.png")))
 
 managers={
     "menu":pygame_gui.UIManager(SCREENSIZE),
     "level_select":pygame_gui.UIManager(SCREENSIZE),
-    "playing":pygame_gui.UIManager(SCREENSIZE),
     "trial_completed":pygame_gui.UIManager(SCREENSIZE),
+    "playing":pygame_gui.UIManager(SCREENSIZE),
+    "time_trial":pygame_gui.UIManager(SCREENSIZE),
 }
 
 def blitRotate(surf,image, pos, originPos, angle):
@@ -52,7 +51,9 @@ def blitRotate(surf,image, pos, originPos, angle):
     rotated_image = pygame.transform.rotate(image, angle)
     surf.blit(rotated_image, origin)
 
-
+def changeTextbox(dabox, datext):
+    dabox.html_text=str(datext)
+    dabox.rebuild()
 
 def loadImage(path):
     image = pygame.image.load(os.path.join("assets", "textures", path))
@@ -62,7 +63,7 @@ def loadImage(path):
 
 def initSound():
     volume = 0.5
-    v=volume
+    music_volume = 0
     pygame.font.init() # you have to call this at the start, 
                            # if you want to use this module.
     pygame.mixer.init(buffer=32)
@@ -71,14 +72,20 @@ def initSound():
     Sound.wallSounds = []
     for i in range(10):
         Sound.crushSounds.append(pygame.mixer.Sound(os.path.join(SOUND_PATH, "crush"+str(i+1)+".wav")))
-        Sound.crushSounds[-1].set_volume(v*1)
+        Sound.crushSounds[i].set_volume(volume*1)
     for i in range(4):
         Sound.wallSounds.append(pygame.mixer.Sound(os.path.join(SOUND_PATH, "wall"+str(i+1)+".wav")))
-        Sound.wallSounds[-1].set_volume(v*1)
+        Sound.wallSounds[i].set_volume(volume*1)
     
     pygame.mixer.music.load(os.path.join(SOUND_PATH, "crushing music.wav")) #must be wav 16bit and stuff?
-    pygame.mixer.music.set_volume(v*0.5)
+    pygame.mixer.music.set_volume(music_volume*0.5)
     pygame.mixer.music.play(-1)
+
+def changeVolume(volume):
+    for i in range(10):
+        Sound.crushSounds[i].set_volume(volume*1)
+    for i in range(4):
+        Sound.wallSounds[i].set_volume(volume*1)
 
 def playCrushSound():
     sound = random.choice(Sound.crushSounds)
@@ -108,8 +115,9 @@ class Game():
         self.time_trial_time = 0
 
     def exit_level(self):
-        if game.level_over_animation:
-            Menues.level_buttons[game.level.campaign_level_number+1].enable()
+        #if game.level_over_animation:
+         #   Menues.level_buttons[game.level.campaign_level_number+1].enable()
+          #  save_save_file(game.level.campaign_level_number+1+1)
         game.mode = "level_select"
 
     def start_level(self, lvl = "randomized"):
@@ -120,8 +128,7 @@ class Game():
     def update_diamond_count(self,d):
         self.diamonds = d
         for i in Menues.diamond_textboxes:
-            i.html_text=str(self.diamonds)
-            i.rebuild()
+            changeTextbox(i, self.diamonds)
 
     def update(self):
 
@@ -139,9 +146,7 @@ class Game():
 
             if self.gameMode == "time_trial":
                 self.time_trial_time += 1
-                i = Menues.diamond_textboxes[-1] # hack!!! this is the diamond counter in "playing" mode
-                i.html_text=str(round(self.time_trial_time/60,2))
-                i.rebuild()
+                changeTextbox(Menues.trial_time_textboxes[0], round(self.time_trial_time/60,2))
 
     def draw(self):
         gameDisplay.fill((0,0,0))
@@ -151,6 +156,25 @@ class Game():
 
         if self.mode == "playing":
             self.level.draw()
+
+            #print(self.level.levelName)
+            if not game.gameMode == "pvp":
+                if (self.level.levelName in ["restart", "5x5"]):
+                    mousex, mousey = pygame.mouse.get_pos()
+                    times_a_wastin = len(self.level.moveHistory)
+                    if mousex<SCREENSIZE[0]//3 and mousey<SCREENSIZE[1]//3:
+                        times_a_wastin += 10
+                else:
+                    times_a_wastin = max(0, len(self.level.moveHistory) - 20)
+                if times_a_wastin>10:
+                    myfont_big = pygame.font.Font(pygame.font.get_default_font(), 50)
+
+                    color_gray = min(times_a_wastin*5, 255)
+                    classname_text_surf = myfont_big.render("Press U to undo.", False, (color_gray, color_gray, color_gray))
+                    classname_text_surf2 = myfont_big.render("Press R to restart.", False, (color_gray, color_gray, color_gray))
+                    topleft = self.level.get_topleft()
+                    gameDisplay.blit(classname_text_surf,(topleft[0], 2*SCREENSIZE[1]//2 - topleft[1] +10))
+                    gameDisplay.blit(classname_text_surf2,(topleft[0], 2*SCREENSIZE[1]//2 - topleft[1] +60))
 
     def shakeScreen(self, amount, dPos):
         self.screenshake = max(self.screenshake, amount)
@@ -163,6 +187,8 @@ class Game():
     ]
 
 class Level():
+
+    all_level_names = ["planks","planksturns","moreplanks","rocks","rockwall","rocksandplanks","squid","weird","restart","5x5","bait","kestrel","spire","centerrocks","stuckrock","goaround","3rooms","amogus","trickymaze","choosepath","4rooms"]
 
     def __init__(self, lvl = "randomized"):
 
@@ -179,6 +205,7 @@ class Level():
         return (SCREENSIZE[0]//2 - 64*self.grid.width//2 + game.currentScreenShake[0], SCREENSIZE[1]//2 - 64*self.grid.height//2 + game.currentScreenShake[1])
 
     def start_level(self, lvl = "randomized"):
+        self.levelName = lvl
         if lvl == "randomized":
             arenasize = (random.randint(5,15),random.randint(3,10))
             self.grid = Grid(arenasize[0], arenasize[1])
@@ -190,12 +217,13 @@ class Level():
             self.playerstartpositions = self.grid.load_level(os.path.join("pvpLevels", lvlName))
         else:
             self.grid = Grid(0, 0)
-            self.playerstartpositions = self.grid.load_level(os.path.join("campaignLevels", lvl))
+            self.playerstartpositions = self.grid.load_level(os.path.join("campaignLevels", lvl+".txt"))
         self.players = []
         for i in self.playerstartpositions:
             self.players.append(Player(self.playerstartpositions[i], i))
         self.backupsave = Grid(self.grid.width, self.grid.height)
         self.copy_grid(self.grid, self.backupsave)
+        self.moveHistory = []
     
     def copy_grid(self, a, b):
         b.grid = []
@@ -205,7 +233,20 @@ class Level():
                 b.set_at(x,y, a.get_at(x,y))
         b.diamonds = a.diamonds[:]
 
+    def undo_move(self):
+        if self.moveHistory:
+            self.copy_grid(self.backupsave, self.grid)
+            self.players = []
+            for i in self.playerstartpositions:
+                self.players.append(Player(self.playerstartpositions[i], i))
+            for i in range(len(self.moveHistory)-1):
+                self.players[0].dash_silently(*self.moveHistory[i])
+            self.moveHistory.pop()
+        else:
+            playWallSound()
+
     def restart_level(self):
+        self.moveHistory = []
         self.copy_grid(self.backupsave, self.grid)
         self.players = []
         for i in self.playerstartpositions:
@@ -249,16 +290,19 @@ class Level():
             if self.trials_completed == 3:
                 game.mode = "trial_completed"
                 for i in Menues.trial_time_textboxes:
-                    i.html_text=str(round(game.time_trial_time/60,2))
-                    i.rebuild()
+                    changeTextbox(i, round(game.time_trial_time/60, 2))
             else:
                 random.seed(Menues.seed_textbox.get_text()+str(self.trials_completed))
                 self.start_level()
 
         if game.gameMode == "campaign":
-            game.mode = "level_select"
             if len(Menues.level_buttons)-1 >= self.campaign_level_number+1:
-                Menues.level_buttons[self.campaign_level_number+1].enable()
+                self.campaign_level_number += 1
+                Menues.level_buttons[self.campaign_level_number].enable()
+                save_save_file(self.campaign_level_number+1)
+                self.start_level(Level.all_level_names[self.campaign_level_number])
+            else:
+                game.mode = "level_select"
 
         if game.gameMode == "pvp":
             self.start_level("pvp")
@@ -302,6 +346,7 @@ class Grid():
                 image = self.images[self.grid[x][y]]
                 #rotated_image = pygame.transform.rotate(image, 0)
                 #blitRotate(gameDisplay, image, (topleft[0] + x*64 +32, topleft[1] + y*64 +32), (32,32), 0)
+                gameDisplay.blit(self.images['sand'], (topleft[0] + x*64, topleft[1] + y*64))
                 gameDisplay.blit(image, (topleft[0] + x*64, topleft[1] + y*64))
                 if (x,y) in self.diamonds:
                     gameDisplay.blit(self.images["diamond"], (topleft[0] + x*64, topleft[1] + y*64))
@@ -404,6 +449,29 @@ class Player():
         self.image = self.standingImages[self.color]
         self.diamonds = 0
 
+    def dash_silently(self, dPos, ang):
+        self.angle = ang #?
+        stopped = False
+        steps_moved = 0
+        while not stopped:
+            if 0 <= self.x+dPos[0] < game.level.grid.width and 0 <= self.y+dPos[1] < game.level.grid.height:
+                if game.level.grid.grid[self.x+dPos[0]][self.y+dPos[1]] == "obsidian":
+                    stopped = True
+                elif game.level.grid.grid[self.x+dPos[0]][self.y+dPos[1]] == "rock" and steps_moved==0:
+                    stopped = True
+                else:
+                    steps_moved += 1
+                    self.x += dPos[0]
+                    self.y += dPos[1]
+                    if game.level.grid.grid[self.x][self.y] == "rock":
+                        game.level.grid.grid[self.x][self.y] = "sand"
+                        stopped = True
+                    elif game.level.grid.grid[self.x][self.y] == "wood":
+                        game.level.grid.grid[self.x][self.y] = "sand"
+                        stopped = True
+            else:
+                stopped = True
+
     def dash(self, dPos, ang):
         self.angle = ang
         stopped = False
@@ -412,38 +480,45 @@ class Player():
         while not stopped:
             if 0 <= self.x+dPos[0] < game.level.grid.width and 0 <= self.y+dPos[1] < game.level.grid.height:
                 if game.level.grid.grid[self.x+dPos[0]][self.y+dPos[1]] == "obsidian":
-                    playWallSound()
+                    self.boringCollide(dPos, steps_moved)
                     stopped = True
                 elif game.level.grid.grid[self.x+dPos[0]][self.y+dPos[1]] == "rock" and steps_moved==0:
-                    playWallSound()
+                    self.boringCollide(dPos, steps_moved)
                     stopped = True
                 else:
+                    # SMOKE AND TRAIL
                     trail = Particle(self.x, self.y, self.angle, "smoke", steps_moved//2+4)
                     trail.image = self.trailImages[self.color]
                     game.level.particles.append(trail)
+
                     smoke = Particle(self.x +dPos[0]*random.random(), self.y +dPos[1]*random.random(), self.angle, "smoke", random.randint(5,15))
                     smoke.xv = (dPos[0] + random.random() -0.5)*0.01
                     smoke.yv = (dPos[1] + random.random() -0.5)*0.01
                     smokeParticles.append(smoke)
+
+
                     self.x += dPos[0]
                     self.y += dPos[1]
                     steps_moved += 1
                     if game.level.grid.grid[self.x][self.y] == "rock":
                         self.crushingParticles(dPos, "rocks", 0.15)
                         game.shakeScreen(steps_moved+5, dPos)
+
                         game.level.grid.grid[self.x][self.y] = "sand"
                         stopped = True
                     elif game.level.grid.grid[self.x][self.y] == "wood":
                         self.crushingParticles(dPos, "planks", 0.2)
                         game.shakeScreen(steps_moved+3, dPos)
+
                         game.level.grid.grid[self.x][self.y] = "sand"
                         stopped = True
                     else:
-                        if (self.x, self.y) in game.level.grid.diamonds:
+                        if (self.x, self.y) in game.level.grid.diamonds: # diamond
                             self.diamonds += 1
                             game.level.grid.diamonds.remove((self.x, self.y))
                             self.crushingParticles(dPos, "diamonds", 0.2)
-                        for p in game.level.players:
+
+                        for p in game.level.players: # KILL
                             if self != p:
                                 if p.x == self.x and p.y == self.y:
                                     game.level.players.remove(p)
@@ -451,13 +526,17 @@ class Player():
                                     stopped = True
                                     game.level.level_won()
             else:
-                playWallSound()
+                self.boringCollide(dPos, steps_moved)
                 stopped = True
+
         game.level.particles = smokeParticles + game.level.particles
-        game.shakeScreen(steps_moved, dPos)
+        self.image = self.dashImages[self.color]
         if steps_moved:
-            self.image = self.dashImages[self.color]
-        return steps_moved > 0
+            game.level.moveHistory.append((dPos,ang))
+
+    def boringCollide(self, dPos, spd):
+        playWallSound()
+        game.shakeScreen(spd//2+3, dPos)
 
     def crushingParticles(self, dPos, particle_name, spd):
         playCrushSound()
@@ -511,8 +590,25 @@ class Particle():
         images[i] = loadImage(os.path.join("particles", i+".png"))
 
 
+def load_save_file():
+    try:
+        with open(os.path.join("assets","savefile.txt"), "r") as save_file:
+            line = save_file.readline()
+            unlockedLevels = int(line)
+            return unlockedLevels
+    except Exception as e:
+        print("no savefile")
+        return 1
+def save_save_file(nr):
+    old_nr = load_save_file()
+    if nr>old_nr:
+        with open(os.path.join("assets","savefile.txt"), "w") as save_file:
+            save_file.write(str(nr) + "\n")
+
+
 class Menues():
     
+    LEVELS_HAVE_NAMES = 0
 
     # MAIN MENU
 
@@ -522,38 +618,60 @@ class Menues():
         pygame_gui.elements.UITextBox(relative_rect=pygame.Rect((SCREENSIZE[0]-100, 50), (50, 50)),html_text=str(0),manager=managers["level_select"]),
         pygame_gui.elements.UITextBox(relative_rect=pygame.Rect((SCREENSIZE[0]-100, 50), (50, 50)),html_text=str(0),manager=managers["playing"]),
     ]
-    music_volume_textbox = pygame_gui.elements.UITextBox(relative_rect=pygame.Rect((20, 25), (200, 75)),html_text="Speed Crush Dash <br>yo",manager=managers["menu"])
-    music_volume_slider = pygame_gui.elements.UIHorizontalSlider(relative_rect=pygame.Rect((SCREENSIZE[0]-300, 200), (200, 50)),start_value=100, value_range=(0,100), manager=managers["menu"])
-    music_volume_slider.enable_arrow_buttons=0
-    
+
+    # VOLUME SLIDERS
+
+    music_volume_textbox = pygame_gui.elements.UITextBox(relative_rect=pygame.Rect((SCREENSIZE[0]-300, 250), (200, 50)),html_text="Music volume",manager=managers["menu"])
+    music_volume_slider = pygame_gui.elements.UIHorizontalSlider(relative_rect=pygame.Rect((SCREENSIZE[0]-300, 300), (200, 50)),start_value=0, value_range=(0,100), manager=managers["menu"])
+    music_volume_slider.enable_arrow_buttons = 0
+    music_volume_slider.sliding_button_width = 50
+    music_volume_slider.rebuild()
+
+    volume_textbox = pygame_gui.elements.UITextBox(relative_rect=pygame.Rect((SCREENSIZE[0]-300, 400), (200, 50)),html_text="Sound Volume",manager=managers["menu"])
+    volume_slider = pygame_gui.elements.UIHorizontalSlider(relative_rect=pygame.Rect((SCREENSIZE[0]-300, 450), (200, 50)),start_value=50, value_range=(0,100), manager=managers["menu"])
+    volume_slider.enable_arrow_buttons = 0
+    volume_slider.sliding_button_width = 50
+    volume_slider.rebuild()
+
+
+    # PLAY GAMEMODE BUTTONS
+
     level_select_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((300, 200), (300, 200)),text="Puzzle Level Select",manager=managers["menu"])
     play_randomized_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((700, 200), (300, 200)),text="Limitless Mode",manager=managers["menu"])
     play_pvp_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((300, 500), (300, 200)),text="PvP",manager=managers["menu"])
     play_time_trial_button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect((700, 500), (300, 200)),text="Time Trial",manager=managers["menu"])
 
-    # seed?
 
+    # TIME TRIALS
     seed_textbox = pygame_gui.elements.UITextEntryLine(pygame.Rect((700,700),(300,50)), manager = managers["menu"])
     trial_time_textboxes = [
+        pygame_gui.elements.UITextBox(relative_rect=pygame.Rect((SCREENSIZE[0]//2-50, SCREENSIZE[1]-100), (100, 50)),html_text=str(0),manager=managers["time_trial"]),
         pygame_gui.elements.UITextBox(relative_rect=pygame.Rect((SCREENSIZE[0]//2-50, SCREENSIZE[1]//2-25), (100, 50)),html_text=str(0),manager=managers["trial_completed"]),
     ]
 
 
+    # BACK / CONTINUE BUTTONS
 
-    # LEVEL SELECT
     back_to_menu_buttons = [
         pygame_gui.elements.UIButton(relative_rect=pygame.Rect((100, 100), (100, 50)),text="Back",manager=managers["level_select"]),
         pygame_gui.elements.UIButton(relative_rect=pygame.Rect((100, 100), (100, 50)),text="Back",manager=managers["playing"]),
         pygame_gui.elements.UIButton(relative_rect=pygame.Rect((SCREENSIZE[0]//2-50, SCREENSIZE[1]//2+50), (100, 50)),text="Continue",manager=managers["trial_completed"]),
     ]
 
+
+    # LEVEL SELECT
+
+    unlocked_levels = load_save_file()
     level_buttons = []
-    lvl_list = sorted(os.listdir(path=os.path.join("assets", "campaignLevels")))
-    for i in range(len(lvl_list)):
-        lvls_per_row = 6
+    lvls_per_row = 6
+    for i in range(len(Level.all_level_names)):
         pos = (200 + (i%lvls_per_row)*200, 200 + (i//lvls_per_row)*150)
-        button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect(pos, (150, 100)),text='Level '+lvl_list[i], manager=managers["level_select"])
-        if i+1>1:
+        if LEVELS_HAVE_NAMES:
+            lename = Level.all_level_names[i]
+        else:
+            lename = 'Level '+str(i+1)
+        button = pygame_gui.elements.UIButton(relative_rect=pygame.Rect(pos, (150, 100)),text=lename, manager=managers["level_select"])
+        if i+1>unlocked_levels:
             pass
             button.disable()
         level_buttons.append(button)
@@ -567,9 +685,15 @@ while jump_out == False:
 
     manager=managers[game.mode]
     manager.update(time_delta)
+    if game.mode == "playing" and game.gameMode == "time_trial":
+        managers["time_trial"].update(time_delta)
+
     #pygame.event.get()
     for event in pygame.event.get():
         manager.process_events(event)
+        if game.mode == "playing" and game.gameMode == "time_trial":
+            managers["time_trial"].process_events(event)
+        
         if event.type == pygame.QUIT:
             jump_out = True
         if event.type == pygame.KEYDOWN:
@@ -582,50 +706,63 @@ while jump_out == False:
                             break
                     if event.key == pygame.K_r and not game.gameMode == "pvp":
                         game.level.restart_level()
+                    if event.key == pygame.K_u and not game.gameMode == "pvp":
+                        game.level.undo_move()
             if event.key == pygame.K_ESCAPE:
                 if game.mode=="playing" and game.gameMode == "campaign":
                     game.exit_level()
                 else:
                     game.mode="menu"
 
-        if event.type == pygame.USEREVENT:
-            if event.user_type == pygame_gui.UI_BUTTON_PRESSED:
+        if event.type == pygame_gui.UI_HORIZONTAL_SLIDER_MOVED:
+            if event.ui_element == Menues.volume_slider:
+                volume = event.value/100
+                changeVolume(volume)
+                changeTextbox(Menues.volume_textbox, "Sound Volume: "+str(event.value)+"%")
+            if event.ui_element == Menues.music_volume_slider:
+                music_volume = event.value/100
+                pygame.mixer.music.set_volume(music_volume*0.5)
+                changeTextbox(Menues.music_volume_textbox, "Music Volume: "+str(event.value)+"%")
+
+        if event.type == pygame_gui.UI_BUTTON_PRESSED:
                 
-                playWallSound()
-                #buttons
-                if event.ui_element in Menues.level_buttons:
-                    game.mode="playing"
-                    game.gameMode = "campaign"
-                    lvl_nr = Menues.level_buttons.index(event.ui_element)
-                    game.start_level(Menues.lvl_list[lvl_nr])
-                    game.level.campaign_level_number = lvl_nr
-                if event.ui_element == Menues.level_select_button:
-                    game.mode="level_select"
-                if event.ui_element == Menues.play_randomized_button:
-                    game.mode="playing"
-                    game.gameMode = "randomized"
-                    random.seed()
-                    game.start_level()
-                if event.ui_element == Menues.play_time_trial_button:
-                    game.mode="playing"
-                    game.gameMode = "time_trial"
-                    random.seed(Menues.seed_textbox.get_text())
-                    game.start_level()
-                    game.trial_completed = 0
-                    game.time_trial_time = 0
-                if event.ui_element == Menues.play_pvp_button:
-                    game.mode="playing"
-                    game.gameMode = "pvp"
-                    game.start_level("pvp")
-                if event.ui_element in Menues.back_to_menu_buttons:
-                    if game.mode=="playing" and game.gameMode == "campaign":
-                        game.exit_level()
-                    else:
-                        game.mode="menu"
+            playWallSound()
+            #buttons
+            if event.ui_element in Menues.level_buttons:
+                game.mode="playing"
+                game.gameMode = "campaign"
+                lvl_nr = Menues.level_buttons.index(event.ui_element)
+                game.start_level(Level.all_level_names[lvl_nr])
+                game.level.campaign_level_number = lvl_nr
+            if event.ui_element == Menues.level_select_button:
+                game.mode="level_select"
+            if event.ui_element == Menues.play_randomized_button:
+                game.mode="playing"
+                game.gameMode = "randomized"
+                random.seed()
+                game.start_level()
+            if event.ui_element == Menues.play_time_trial_button:
+                game.mode="playing"
+                game.gameMode = "time_trial"
+                random.seed(Menues.seed_textbox.get_text())
+                game.start_level()
+                game.trial_completed = 0
+                game.time_trial_time = 0
+            if event.ui_element == Menues.play_pvp_button:
+                game.mode="playing"
+                game.gameMode = "pvp"
+                game.start_level("pvp")
+            if event.ui_element in Menues.back_to_menu_buttons:
+                if game.mode=="playing" and game.gameMode == "campaign":
+                    game.exit_level()
+                else:
+                    game.mode="menu"
 
     game.update()
     game.draw()
     manager.draw_ui(gameDisplay)
+    if game.mode == "playing" and game.gameMode == "time_trial":
+        managers["time_trial"].draw_ui(gameDisplay)
     
 
     pygame.display.flip()
